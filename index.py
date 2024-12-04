@@ -3,6 +3,7 @@ import jwt
 import datetime
 from flask import Flask, request, jsonify, json
 import os
+from flask_mail import Message, Mail
 from dotenv import load_dotenv
 from extensions.extensions import get_db_connection, app, mail
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,6 +12,93 @@ load_dotenv()
 
 # Secret key for JWT encoding and decoding
 SECRET_KEY = os.getenv("SECRET_KEY")
+
+@app.route("/send_email", methods=["GET", "POST"])
+def sendEmail():
+    try:
+        # Get user data from the database (example: based on email)
+        data = request.get_json()
+        email = data['email']
+
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        cur.execute("SELECT email FROM users WHERE email = %s", (email,))
+        user = cur.fetchone()
+
+        if user:
+            # Send email to the user
+            subject = "Account Activation and Game Access"
+            body = """
+                <html>
+                <head>
+                    <style>
+                        body {
+                            font-family: Arial, sans-serif;
+                            background-color: #f4f4f9;
+                            margin: 0;
+                            padding: 0;
+                        }
+                        .email-container {
+                            background-color: #ffffff;
+                            width: 600px;
+                            margin: 20px auto;
+                            padding: 20px;
+                            border-radius: 8px;
+                            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                        }
+                        h2 {
+                            color: #333;
+                            font-size: 24px;
+                            margin-bottom: 10px;
+                        }
+                        p {
+                            font-size: 16px;
+                            color: #555;
+                            line-height: 1.6;
+                        }
+                        .footer {
+                            text-align: center;
+                            margin-top: 20px;
+                            font-size: 12px;
+                            color: #aaa;
+                        }
+                        .footer a {
+                            color: #333;
+                            text-decoration: none;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="email-container">
+                        <h2>Your account will be activated soon!</h2>
+                        <p>Thank you for your payment. Your account is currently being processed and will be activated shortly.</p>
+                        <p>The game you paid for will be accessible as soon as your account is activated. Please stay tuned for further updates!</p>
+                        <div class="footer">
+                            <p>&copy; 2024 HCHBet. All rights reserved.</p>
+                            <p><a href="https://www.hchbet.com">Visit our site</a></p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            """
+            
+            # Create a message
+            msg = Message(subject=subject,
+                          recipients=[email],
+                          html=body)
+
+            # Send the email
+            mail.send(msg)
+
+            return jsonify({
+                'message': 'Email sent successfully',
+                'status': 200
+            }), 200
+        else:
+            return jsonify({'error': 'User not found'}), 404
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
 
 @app.route("/show", methods=["GET"])
 def show_users():
@@ -50,8 +138,8 @@ def userSignup():
         # Get data from the request
         data = request.get_json()
 
-        email = data['email']
-        password = data['password']
+        email = data['email'].strip()
+        password = data['password'].strip()
         
         # Check if email is already in the database
         conn = get_db_connection()
