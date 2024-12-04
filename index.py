@@ -3,6 +3,7 @@ import jwt
 import datetime
 from flask import Flask, request, jsonify, json
 import os
+import pymysql
 from flask_mail import Message, Mail
 from dotenv import load_dotenv
 from extensions.extensions import get_db_connection, app, mail
@@ -12,6 +13,82 @@ load_dotenv()
 
 # Secret key for JWT encoding and decoding
 SECRET_KEY = os.getenv("SECRET_KEY")
+
+@app.route("/welcome", methods=["GET"])
+def welcome():
+    try:
+        data = request.get_json()
+        email = data['email']
+        subject = "Registration Successful"
+        body = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f9;
+                    margin: 0;
+                    padding: 0;
+                }}
+                .email-container {{
+                    background-color: #ffffff;
+                    width: 600px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                }}
+                h2 {{
+                    color: #4CAF50;
+                    font-size: 24px;
+                    margin-bottom: 10px;
+                }}
+                p {{
+                    font-size: 16px;
+                    color: #555;
+                    line-height: 1.6;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 20px;
+                    font-size: 12px;
+                    color: #aaa;
+                }}
+                .footer a {{
+                    color: #4CAF50;
+                    text-decoration: none;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <h2>Welcome, {email}!</h2>
+                <p>Congratulations, your registration was successful. We're excited to have you with us!</p>
+                <p>You can now log in to your account and start exploring our platform.</p>
+                <div class="footer">
+                    <p>&copy; 2024 HCHBet. All rights reserved.</p>
+                    <p><a href="https://hchbet.vercel.app">Visit our site</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Create the message
+        msg = Message(subject=subject,
+                      recipients=[email],
+                      html=body)
+
+        # Send the email
+        mail.send(msg)
+        return jsonify({
+            'status': 200,
+            'message': "email sent"
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
 
 @app.route("/send_email", methods=["GET", "POST"])
 def sendEmail():
@@ -131,6 +208,56 @@ def show_users():
         return jsonify({'error': str(e), 'status': 400}), 400
 
 
+@app.route("/update_balance", methods=["POST"])
+def update_balance():
+    try:
+        # Get JSON data from the request
+        data = request.get_json()
+
+        # Extract the email and amount to add from the received data
+        email = data.get("email")
+        amount_to_add = data.get("amount")
+
+        # Ensure that email and amount_to_add are provided
+        if not email or amount_to_add is None:
+            return jsonify({"error": "Email and amount are required"}), 400
+
+        # Establish a database connection
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        # Query to check if the user exists
+        cur.execute("SELECT balance FROM users WHERE email = %s", (email,))
+        user = cur.fetchone()
+
+        if not user:
+            # If user does not exist, return an error
+            return jsonify({"error": "User not found"}), 404
+
+        current_balance = user[0]  # Get the current balance
+
+        # Add the amount to the current balance
+        new_balance = current_balance + amount_to_add
+
+        # Update the user's balance in the database
+        cur.execute("UPDATE users SET balance = %s WHERE email = %s", (new_balance, email))
+        conn.commit()
+
+        # Close the cursor and connection
+        cur.close()
+        conn.close()
+
+        # Return a success response
+        return jsonify({"message": "Balance updated successfully", "new_balance": new_balance}), 200
+
+    except pymysql.MySQLError as e:
+        # If there's an error with the database, return an error message
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
+
+    except Exception as e:
+        # Handle any other errors
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+
 
 @app.route("/signup", methods=["POST", "GET"])
 def userSignup():
@@ -180,6 +307,69 @@ def userSignup():
         }
 
         token = jwt.encode(payload, SECRET_KEY, algorithm='HS256')
+
+        subject = "Registration Successful"
+        body = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f9;
+                    margin: 0;
+                    padding: 0;
+                }}
+                .email-container {{
+                    background-color: #ffffff;
+                    width: 600px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                }}
+                h2 {{
+                    color: #4CAF50;
+                    font-size: 24px;
+                    margin-bottom: 10px;
+                }}
+                p {{
+                    font-size: 16px;
+                    color: #555;
+                    line-height: 1.6;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 20px;
+                    font-size: 12px;
+                    color: #aaa;
+                }}
+                .footer a {{
+                    color: #4CAF50;
+                    text-decoration: none;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <h2>Welcome, {email}!</h2>
+                <p>Congratulations, your registration was successful. We're excited to have you with us!</p>
+                <p>You can now log in to your account and start exploring our platform.</p>
+                <div class="footer">
+                    <p>&copy; 2024 HCHBet. All rights reserved.</p>
+                    <p><a href="https://hchbet.vercel.app">Visit our site</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Create the message
+        msg = Message(subject=subject,
+                      recipients=[email],
+                      html=body)
+
+        # Send the email
+        mail.send(msg)
 
         return json.jsonify({
             'message': 'Account created successfully',
