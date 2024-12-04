@@ -53,14 +53,20 @@ def userSignup():
         email = data['email']
         password = data['password']
         
-        # Hash the password before storing it in the database
-        hashed_password = generate_password_hash(password)
-
-        # Create a new user with a balance of 0.00
+        # Check if email is already in the database
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # Insert user into the database
+        cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+        existing_user = cur.fetchone()
+
+        if existing_user:
+            return json.jsonify({'error': 'Email already registered', "message": "Email already registered", "status": 400}), 400
+
+        # Hash the password before storing it in the database
+        hashed_password = generate_password_hash(password)
+
+        # Create the users table if it doesn't exist
         cur.execute('''CREATE TABLE IF NOT EXISTS users (
                         id SERIAL PRIMARY KEY,
                         email TEXT UNIQUE NOT NULL,
@@ -68,16 +74,19 @@ def userSignup():
                         balance DECIMAL DEFAULT 0.00
                       )''')
 
-        # Insert the user into the users table
+        # Insert the new user into the database
         cur.execute("INSERT INTO users (email, password, balance) VALUES (%s, %s, %s)", 
                     (email, hashed_password, 0.00))
 
         conn.commit()
+
+        # Get the user's ID (last inserted row ID)
+        user_id = cur.lastrowid
         conn.close()
 
         # Create JWT token with user details (excluding the password)
         payload = {
-            'id': cur.lastrowid,
+            'id': user_id,
             'email': email,
             'balance': 0.00,
         }
@@ -91,7 +100,8 @@ def userSignup():
         }), 200
 
     except Exception as e:
-        return json.jsonify({'error': str(e)}), 400
+        return json.jsonify({'error': str(e), 'status': 400, 'message': str(e)}), 400
+
 
 
 @app.route("/login", methods=["POST"])
