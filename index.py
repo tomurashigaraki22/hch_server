@@ -90,6 +90,83 @@ def welcome():
         return jsonify({'error': str(e)}), 400
 
 
+@app.route("/prize_notification", methods=["POST", "GET"])
+def prize_notification():
+    try:
+        data = request.get_json()
+        email = data['email']
+        subject = "Your Claimed Prize is on Its Way!"
+        body = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    background-color: #f9f9f9;
+                    margin: 0;
+                    padding: 0;
+                }}
+                .email-container {{
+                    background-color: #ffffff;
+                    width: 600px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    border-radius: 8px;
+                    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                }}
+                h2 {{
+                    color: #007bff;
+                    font-size: 24px;
+                    margin-bottom: 10px;
+                }}
+                p {{
+                    font-size: 16px;
+                    color: #555;
+                    line-height: 1.6;
+                }}
+                .footer {{
+                    text-align: center;
+                    margin-top: 20px;
+                    font-size: 12px;
+                    color: #aaa;
+                }}
+                .footer a {{
+                    color: #007bff;
+                    text-decoration: none;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="email-container">
+                <h2>Good News, {email}!</h2>
+                <p>Your claimed prize is on its way. Kindly hold on for a few hours as we finalize the process.</p>
+                <p>We appreciate your patience and trust in HCHBet.</p>
+                <div class="footer">
+                    <p>&copy; 2024 HCHBet™. All rights reserved.</p>
+                    <p><a href="https://hchbet.vercel.app">Visit our site</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        # Create the message
+        msg = Message(subject=subject,
+                      recipients=[email],
+                      html=body)
+
+        # Send the email
+        mail.send(msg)
+        return jsonify({
+            'status': 200,
+            'message': "Notification email sent"
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+
+
+
 @app.route("/send_email", methods=["GET", "POST"])
 def sendEmail():
     try:
@@ -237,7 +314,7 @@ def update_balance():
         current_balance = user[0]  # Get the current balance
 
         # Add the amount to the current balance
-        new_balance = current_balance + amount_to_add
+        new_balance = current_balance
 
         # Update the user's balance in the database
         cur.execute("UPDATE users SET balance = %s WHERE email = %s", (new_balance, email))
