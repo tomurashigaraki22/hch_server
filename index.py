@@ -314,7 +314,7 @@ def update_balance():
         current_balance = user[0]  # Get the current balance
 
         # Add the amount to the current balance
-        new_balance = current_balance
+        new_balance = current_balance + amount_to_add
 
         # Update the user's balance in the database
         cur.execute("UPDATE users SET balance = %s WHERE email = %s", (new_balance, email))
